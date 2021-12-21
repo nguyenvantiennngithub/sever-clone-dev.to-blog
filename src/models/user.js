@@ -12,6 +12,7 @@ const UserSchema = new Schema({
   bookmark: {type: [String], default: []},
   following: {type: [String], default: []},//mình follow người khác
   followers: {type: [String], default: []},//người khác follow mình
+  posts: {type: [String], default: []},
   avatar: {
     type: String,
     default: 'https://res.cloudinary.com/vantiennn/image/upload/v1639629198/BlogProject/Post/dd23bbdf7fcbed6a24dd223cb1eec1b7.png'

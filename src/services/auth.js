@@ -1,5 +1,6 @@
 import UserModel from "../models/user.js";
 import jwt from 'jsonwebtoken'
+
 async function registerUser(data){
     const isExist = await checkExistUsername(data.username);
     if (isExist) {
@@ -7,14 +8,14 @@ async function registerUser(data){
             status:{
                 message: 'Username already exist, please choose a new username',
                 success: false,
-            }
+            },
+            user: null,
         }
     }
     
-    var newUser = new UserModel({...data, displayName: data.username});
+    var newUser = new UserModel({...data, displayName: data.username}, {password: 0});
     var user = await newUser.save();
 
-    user.password = undefined
     console.log(user)    
     return {
         status:{
@@ -29,22 +30,12 @@ async function registerUser(data){
 async function checkLogin({username, password}){
     var message = '';
     var success = false;
-    const user = await UserModel.findOne({username: username, password: password}, 'username email createdAt following followers avatar bio bookmark heart');
+    const user = await UserModel.findOne({username: username, password: password}, {password: 0});
     if (!user){
         message = 'Incorrect password';
     }else{
         success = true;
     }
-
-    // console.log(user)
-    //dont use  
-    // if (!await checkExistUsername(username)){
-    //     message = 'Username does not exist';
-    // }else if (!await checkCorrectPassowrd(username, password)){
-    //     message = 'Incorrect password';
-    // }else{
-    //     success = true;
-    // }
     return {status: {message, success}, user: user}
 }
 

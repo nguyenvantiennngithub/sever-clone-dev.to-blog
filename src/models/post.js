@@ -10,8 +10,8 @@ const PostSchema = new Schema({
     author: String,
     date: {type: Date, default: Date.now},
     slug: {type: String, slug: "title", unique: true},
-    heart: {type: [String], unique: true, default: []},
-    bookmark: {type: [String], unique: true, default: []},
+    bookmark: {type: [String], default: []},
+    heart: {type: [String], default: [], required: false},
 
 }, {timestamps: true});
 
