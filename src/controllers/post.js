@@ -105,7 +105,7 @@ async function getAll(req, res){
     try {
         const posts = await postServices.getAllOrderByCreatedAt();
         const object = posts.map(async post => {
-            const author = await userModel.findOne({username: post.author});
+            const author = await userModel.findOne({username: post.author}, {password: 0});
             return {post, author};
         })
         res.json(await Promise.all(object)) 
