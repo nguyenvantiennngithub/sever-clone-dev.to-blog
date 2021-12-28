@@ -17,11 +17,13 @@ async function registerUser(req, res, next){
 
 async function checkLogin(req, res, next){
     const {username, password} = req.body;
+    console.log(req.body)
     //status: {message, succsess} user: user
     const {status, user} = await authServices.checkLogin({username, password})
     if (status.success){
         //create tokken when login success
         const token = authServices.login(username);
+        console.log("check login token", token);
         res.setHeader('Authorization', token);
     }
     return res.json({status, user});

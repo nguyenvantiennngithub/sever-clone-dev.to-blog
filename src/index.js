@@ -13,11 +13,8 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-
 app.use(express.json({ extended: false, limit: '50mb'}));
 app.use(express.urlencoded({ extended: false }));
-
-
 
 app.use(router);
 cloudinary.config({

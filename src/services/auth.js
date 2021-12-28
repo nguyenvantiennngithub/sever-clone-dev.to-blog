@@ -41,6 +41,7 @@ async function checkLogin({username, password}){
 
 //login 
 function login(username){
+    console.log("USER NAME LOGIN", username)
     var token = jwt.sign({username}, process.env.JWT_SECRET, { expiresIn: '24h' });
     return token;
 }

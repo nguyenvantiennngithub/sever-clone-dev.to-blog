@@ -35,7 +35,7 @@ async function createPost(req, res){
 }
 
 async function getPostBySlug(req, res){
-    console.log("get Post");
+    console.log("get Post", req.params);
     try {
         const post = await postModel.findOne({slug: req.params.slug})
         const author = await userModel.findOne({username: post.author});
@@ -102,9 +102,8 @@ async function bookmark(req, res){
 
 
 async function getAll(req, res){
-    console.log("GET ALL")
     try {
-        const posts = await postModel.find({});
+        const posts = await postServices.getAllOrderByCreatedAt();
         const object = posts.map(async post => {
             const author = await userModel.findOne({username: post.author});
             return {post, author};
@@ -115,11 +114,14 @@ async function getAll(req, res){
     }
 }
 
+
+
 async function editPost(req, res){
     const {data} = req.body;
+    const {username} = res.locals
     console.log(data);
     try {
-        const post = await postModel.findOneAndUpdate({slug: data.slug}, data, {new: true});
+        const post = await postModel.findOneAndUpdate({slug: data.slug, author: username}, data, {new: true});
         console.log(post)
         res.json(post)
     } catch (error) {
@@ -127,4 +129,63 @@ async function editPost(req, res){
     }
 }
 
-export {uploadImage, createPost, getPostBySlug, heart, bookmark, getAll, editPost};
+function sortByQuery(array, sort){
+    console.log(sort)
+    if (sort === 'created-desc'){
+        return array.sort((a, b) => b.createdAt - a.createdAt);
+    }else if (sort === 'updated-desc'){
+        return array.sort((a, b) => b.updatedAt - a.updatedAt);
+    }else if (sort === 'heart-desc'){
+        return array.sort((a, b) => b.heart.length - a.heart.length);
+    }else if (sort === 'bookmark-desc'){
+        return array.sort((a, b) => b.bookmark.length - a.bookmark.length);
+    }else{
+        return array;
+    }
+}
+
+async function getPersonalPosts(req, res){
+    try {
+        const {username} = res.locals;
+        const {sort} = req.query;
+
+        var posts = await postModel.find({author: username})
+        posts = sortByQuery(posts, sort);
+
+        var author = await userModel.findOne({username: username});
+
+        var following = await userModel.find({username: {'$in': author.following}});
+        var followers = await userModel.find({username: {'$in': author.followers}});
+
+        res.json({posts, following, followers})
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+async function deletePost(req, res){
+    try {   
+        const {username} = res.locals;
+        const {slug} = req.params;
+        const post = await postModel.delete({slug: slug, author: username});
+        
+        res.json({status: post.matchedCount > 0});
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+async function getProfile(req, res){
+    try {
+        const {username} = req.params;
+        const author = await userModel.findOne({username: username});
+        var posts = await postModel.find({author: username})
+        posts = sortByQuery(posts, 'created-desc');
+        console.log({author, posts})
+        res.json({author, posts})
+    } catch (error) {
+        console.log(error)
+    }    
+}
+
+export {uploadImage, createPost, getPostBySlug, heart, bookmark, getAll, editPost, getPersonalPosts, deletePost, getProfile};
