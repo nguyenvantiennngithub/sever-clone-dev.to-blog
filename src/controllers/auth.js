@@ -1,6 +1,6 @@
 import UserModel from '../models/user.js';
 import * as authServices from '../services/auth.js';
-
+import clound from 'cloudinary'
 async function registerUser(req, res, next){
     const {username, password, email} = req.body;
     //{message, success}
@@ -44,4 +44,46 @@ async function verifyToken(req, res, next){
     }
 }
 
-export {registerUser, checkLogin, verifyToken};
+
+async function updateInfo(req, res, next){
+    try {
+        const {username} = res.locals;
+        const data = req.body;
+        const dataChange = {
+            displayName: data.displayName,
+            email: data.email,
+            bio: data.bio,
+        };
+        
+        if (data.file) dataChange.avatar = data.image;
+        
+        const newUser = await UserModel.findOneAndUpdate({username: username}, dataChange, {new: true})
+        newUser.password = undefined;   
+
+        res.json(newUser);
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+async function changePassword(req, res, next){
+    try {
+        const {currentPassword, newPassword} = req.body;
+        const {username} = res.locals;
+
+        const user = await UserModel.findOne({username: username, password: currentPassword});
+        
+        if (!user) return res.json({message: "Incorrent password"});
+
+        user.password = newPassword;
+
+        await user.save();
+
+        res.json({message: "Password has been changed"});
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+
+export {registerUser, checkLogin, verifyToken, updateInfo, changePassword};
