@@ -1,6 +1,7 @@
 import * as postServices from '../services/post.js';
 import postModel from '../models/post.js'
 import userModel from '../models/user.js'
+import commentModel from '../models/comment.js'
 import clound from 'cloudinary' 
 import md5 from 'md5'
 const cloudinary = clound.v2;
@@ -38,8 +39,17 @@ async function getPostBySlug(req, res){
     console.log("get Post", req.params);
     try {
         const post = await postModel.findOne({slug: req.params.slug})
-        const author = await userModel.findOne({username: post.author});
-        res.json({post, author})
+        const author = await userModel.findOne({username: post.author}, {password: 0, heart: 0, bookmark: 0, following: 0, followers: 0, posts: 0, createdAt: 0, updatedAt: 0});
+        const comment = await commentModel.find({_id: {$in: post.comment}}).sort({'createdAt': -1});
+        
+        const object = comment.map(async cmt => {
+            const author = await userModel.findOne(
+                {username: cmt.author}, 
+                {password: 0, heart: 0, bookmark: 0, following: 0, followers: 0, posts: 0, createdAt: 0, updatedAt: 0});
+            return {cmt, author};
+        });
+
+        res.json({post, author, comment: await Promise.all(object)})
 
     } catch (error) {
         console.log(error)

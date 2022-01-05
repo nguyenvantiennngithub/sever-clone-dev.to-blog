@@ -14,6 +14,7 @@ var PostSchema = new Schema({
     date: {type: Date, default: Date.now},
     slug: {type: String, slug: "title", unique: true},
     bookmark: {type: [String], default: []},
+    comment: {type: [Object], default: []},
     heart: {type: [String], default: [], required: false},
 
 }, {timestamps: true});
