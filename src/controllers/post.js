@@ -39,6 +39,10 @@ async function getPostBySlug(req, res){
     console.log("get Post", req.params);
     try {
         const post = await postModel.findOne({slug: req.params.slug})
+        if (!post){
+            return res.status(404).json({})
+        }
+
         const author = await userModel.findOne({username: post.author}, {password: 0, heart: 0, bookmark: 0, following: 0, followers: 0, posts: 0, createdAt: 0, updatedAt: 0});
         const comment = await commentModel.find({_id: {$in: post.comment}}).sort({'createdAt': -1});
         
@@ -77,7 +81,7 @@ async function heart(req, res){
         }
         const newPost = await post.save();
         const newAuthor = await author.save();
-        res.json({post: newPost, author: newAuthor});
+        res.json({post: newPost});
     } catch (error) {
         console.log(error)
     }
@@ -103,8 +107,9 @@ async function bookmark(req, res){
         }
         const newPost = await post.save();
         const newAuthor = await author.save();
-        console.log(newAuthor, newPost);
-        res.json({post: newPost, author: newAuthor});
+
+        newAuthor.password = undefined;
+        res.json({post: newPost});
     } catch (error) {
         console.log(error)
     }
@@ -189,6 +194,10 @@ async function getProfile(req, res){
     try {
         const {username} = req.params;
         const author = await userModel.findOne({username: username});
+        if (!author){
+            return res.status(404).end();
+        }
+
         var posts = await postModel.find({author: username})
         posts = sortByQuery(posts, 'created-desc');
         console.log({author, posts})

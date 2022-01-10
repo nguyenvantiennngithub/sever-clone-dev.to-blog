@@ -73,4 +73,30 @@ async function heart(req, res, next){
    }
 }
 
-export {comment, showReply, heart};
+async function editComment(req, res){
+    try {
+        const {id} = req.params;
+        const {username} = res.locals
+        const {comment} = req.body
+        const commentEdit = await CommentModel.findOne({_id: id, author: username});
+        commentEdit.comment = comment;
+        const commentEdited = await commentEdit.save();
+        res.json({comment: commentEdited})
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+async function deleteComment(req, res){
+    try {
+        const {id} = req.params;
+        const {username} = res.locals
+        const commentDelete = await CommentModel.findOne({_id: id, author: username});
+        const commentDeleted = await commentDelete.delete();
+        console.log(commentDeleted)
+        res.json({comment: commentDeleted})
+    } catch (error) {
+        console.log(error);
+    }
+}
+export {comment, showReply, heart, editComment, deleteComment};

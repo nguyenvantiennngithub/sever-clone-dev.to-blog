@@ -30,6 +30,10 @@ async function checkLogin(req, res, next){
 }
 
 async function verifyToken(req, res, next){
+    if (!req.headers.authorization){
+        return res.json({token: false, user: undefined})
+    }
+
     const token = req.headers.authorization.split(" ")[1];
 
     if (token === 'null' || token === null){

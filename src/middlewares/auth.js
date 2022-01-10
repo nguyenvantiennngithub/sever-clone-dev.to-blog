@@ -2,7 +2,10 @@ import jwt from 'jsonwebtoken'
 function checkAuth(req, res, next){
     
     try {
-      
+        if (!req.headers.authorization){
+          return res.json({message: "you cant access this url"})
+        }
+
         const token = req.headers.authorization.split(" ")[1];
         console.log("Middleware/checkAuth", token)
         
