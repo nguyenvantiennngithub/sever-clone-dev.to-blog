@@ -12,6 +12,7 @@ const UserSchema = new Schema({
   bookmark: {type: [String], default: []},
   following: {type: [String], default: []},//mình follow người khác
   followers: {type: [String], default: []},//người khác follow mình
+  notifications: {type: [Object], default: []},
   posts: {type: [String], default: []},
   avatar: {
     type: String,

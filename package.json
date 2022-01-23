@@ -14,7 +14,8 @@
     "mongoose": "^6.0.14",
     "mongoose-delete": "^0.5.4",
     "mongoose-slug-generator": "^1.0.4",
-    "nodemon": "^2.0.15"
+    "nodemon": "^2.0.15",
+    "socket.io": "^4.4.1"
   },
   "devDependencies": {},
   "scripts": {

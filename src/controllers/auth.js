@@ -1,6 +1,7 @@
 import UserModel from '../models/user.js';
 import * as authServices from '../services/auth.js';
 import clound from 'cloudinary'
+
 async function registerUser(req, res, next){
     const {username, password, email} = req.body;
     //{message, success}
@@ -23,26 +24,26 @@ async function checkLogin(req, res, next){
     if (status.success){
         //create tokken when login success
         const token = authServices.login(username);
-        console.log("check login token", token);
         res.setHeader('Authorization', token);
     }
     return res.json({status, user});
 }
 
 async function verifyToken(req, res, next){
-    if (!req.headers.authorization){
-        return res.json({token: false, user: undefined})
-    }
-
-    const token = req.headers.authorization.split(" ")[1];
-
-    if (token === 'null' || token === null){
-        return res.json({token: false, user: undefined})
-    } 
-
     try {
+        if (!req.headers.authorization){
+            return res.json({token: false, user: undefined})
+        }
+
+        const token = req.headers.authorization.split(" ")[1];
+
+        if (token === 'null' || token === null){
+            return res.json({token: false, user: undefined})
+        } 
         const data = authServices.verifyToken(token)
         const user = await UserModel.findOne({username: data.username}, {password: 0});
+        const tokenBool = Boolean(data);
+
         return res.json({token: Boolean(data), user});
     } catch (error) {
         console.log(error)

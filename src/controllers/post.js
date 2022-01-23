@@ -4,6 +4,9 @@ import userModel from '../models/user.js'
 import commentModel from '../models/comment.js'
 import clound from 'cloudinary' 
 import md5 from 'md5'
+import NotificationModel from '../models/notification.js';
+import UserModel from '../models/user.js';
+import { typeEmit, typeNotification } from '../constant/index.js';
 const cloudinary = clound.v2;
 async function uploadImage(req, res){
     const {image, name} = req.body;
@@ -20,8 +23,10 @@ async function uploadImage(req, res){
 async function createPost(req, res){
     const {username} = res.locals
     const post = req.body;
+    const io = req.app.get("io")
     console.log(username, post)
     try {
+        //create post
         const newPost = new postModel({...post, author: username});
         const result = await newPost.save();
         console.log(result)
@@ -29,6 +34,23 @@ async function createPost(req, res){
         const author = await userModel.findOne({username: username});
         author.posts = [result.slug, ...author.posts];
         author.save();
+        
+        //notification
+        if (author.followers.length > 0){
+            const newNotification = new NotificationModel({post: newPost.slug, username: author.followers, type: typeNotification.newPost})
+            const notification = await newNotification.save();
+            for (var i = 0; i < author.followers.length; i++){
+                const receiver = await UserModel.findOne({username: author.followers[i]})
+                receiver.notifications.unshift(notification._id);
+                receiver.save();
+
+                //emit notification to followers
+                io.to(author.followers[i]).emit(typeEmit.newPost, {notifi: notification, post: newPost, author: author})
+            }
+            
+        }
+        
+
         res.json({slug: result.slug})
     } catch (error) {
         console.log("createPost", error)
@@ -61,13 +83,15 @@ async function getPostBySlug(req, res){
 }
 
 async function heart(req, res){
-    const {isPush} = req.body;
-    const {slug} = req.params;
-    const {username} = res.locals
-
+    //heart post
     try {
+        const {isPush} = req.body;
+        const {slug} = req.params;
+        const {username} = res.locals
+        const io = req.app.get('io');
+        
         const post = await postModel.findOne({slug: slug});
-        const author = await userModel.findOne({username: username});
+        const author = await userModel.findOne({username: username});//current user login
 
         const indexHeartPost = post.heart.indexOf(username)
         const indexHeartAuthor = author.heart.indexOf(slug)
@@ -79,8 +103,32 @@ async function heart(req, res){
             if (indexHeartPost !== -1) post.heart.splice(indexHeartPost, 1)
             if (indexHeartAuthor !== -1) author.heart.splice(indexHeartAuthor, 1)
         }
+
+        //notification
+        if (isPush && username !== post.author){
+            const authorOfPost = await UserModel.findOne({username: post.author});
+            //find this notification if exist
+            const notificationHeart = await NotificationModel.findOne({type: typeNotification.heartPost, post: slug, _id: {$in: authorOfPost.notifications}});
+            
+            if (!notificationHeart){//neu chua co notification
+                const notification = new NotificationModel({username: post.author, type: typeNotification.heartPost, post: slug})
+                const newNotification = await notification.save();
+                authorOfPost.notifications.unshift(newNotification._id);
+            }else{
+                const indexNotifi = authorOfPost.notifications.indexOf(notificationHeart._id)
+                if (indexNotifi > 0) {
+                    authorOfPost.notifications.splice(indexNotifi, 1);
+                    authorOfPost.notifications.unshift(notificationHeart._id);
+                }
+            }
+            authorOfPost.save();
+
+            //emit notification socket
+            io.to(authorOfPost.username).emit(typeEmit.heartPost, {notifi: notificationHeart, post: post, nearestHeartUser: author, isReplace: Boolean(notificationHeart)})
+
+        }
         const newPost = await post.save();
-        const newAuthor = await author.save();
+        author.save();
         res.json({post: newPost});
     } catch (error) {
         console.log(error)
