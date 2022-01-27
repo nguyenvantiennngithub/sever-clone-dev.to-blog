@@ -2,7 +2,7 @@ import dotenv from 'dotenv'
 dotenv.config();
 import cors from 'cors';
 import express from 'express';
-import db from './db/index.js'
+import mongodb from './db/index.js'
 import router from './routers/index.js'
 import clound from 'cloudinary' 
 import { Server } from "socket.io";
@@ -23,14 +23,13 @@ const io = new Server(httpServer, {
         credentials: true
     } 
 });
-app.set("io", io);
+
 app.use(cors(corsOptions));
 app.use(express.json({ extended: false, limit: '50mb'}));
 app.use(express.urlencoded({ extended: false }));
 app.use(router);
+app.set("io", io);
 io.on("connection", (socket) => {
-    app.set("socket", socket);
-    
     socket.on("login success", (data)=>{
         socket.username = data.username;
         socket.join(data.username)
@@ -44,10 +43,7 @@ io.on("connection", (socket) => {
     socket.on("disconnecting", ()=>{
         socket.leave(socket.username);
     })
-
 });
-
-
 
 cloudinary.config({
     cloud_name: process.env.CLOUND_NAME,
@@ -55,8 +51,7 @@ cloudinary.config({
     api_secret: process.env.CLOUD_API_SECRET
 })
 
-db();
-
+mongodb();
 httpServer.listen(port, () => {
     console.log(`Example app listening at http://localhost:${port}`)
 })

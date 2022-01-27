@@ -12,5 +12,4 @@ router.post('/:slug/bookmark', checkAuth, postController.bookmark)
 router.post('/:slug/edit', checkAuth, postController.editPost)
 router.post('/:slug/delete', checkAuth, postController.deletePost)
 router.get('/:username/profile', postController.getProfile)
-
 export default router;

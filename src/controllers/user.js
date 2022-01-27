@@ -27,4 +27,4 @@ async function follow(req, res){
     res.json({my: newMy, idol: newIdol});
 }
 
-export {follow}
+export {follow};

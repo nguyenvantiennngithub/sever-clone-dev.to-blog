@@ -12,11 +12,9 @@ async function registerUser(data){
             user: null,
         }
     }
-    
     var newUser = new UserModel({...data, displayName: data.username}, {password: 0});
     var user = await newUser.save();
 
-    console.log(user)    
     return {
         status:{
             message: '',

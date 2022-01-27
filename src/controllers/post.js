@@ -6,15 +6,17 @@ import clound from 'cloudinary'
 import md5 from 'md5'
 import NotificationModel from '../models/notification.js';
 import UserModel from '../models/user.js';
-import { typeEmit, typeNotification } from '../constant/index.js';
+import * as notificationService from '../services/notification.js'
+import { typeEmit, typeNotification, typeRedis } from '../constant/index.js';
+import { addNewNotification, updateCache } from '../utils/index.js';
 const cloudinary = clound.v2;
+
 async function uploadImage(req, res){
     const {image, name} = req.body;
     try {
         const hashName = md5(image);
         const result = await cloudinary.uploader.upload(image, {public_id: 'BlogProject/Post/' + hashName, context: {'alt': name}})
         res.json({url: result.url})
-
     } catch (error) {
         console.log(error)
     }
@@ -23,12 +25,12 @@ async function uploadImage(req, res){
 async function createPost(req, res){
     const {username} = res.locals
     const post = req.body;
-    const io = req.app.get("io")
     console.log(username, post)
     try {
         //create post
         const newPost = new postModel({...post, author: username});
         const result = await newPost.save();
+        const io = req.app.get("io");
         console.log(result)
 
         const author = await userModel.findOne({username: username});
@@ -37,20 +39,16 @@ async function createPost(req, res){
         
         //notification
         if (author.followers.length > 0){
-            const newNotification = new NotificationModel({post: newPost.slug, username: author.followers, type: typeNotification.newPost})
-            const notification = await newNotification.save();
+            const newNotification = await notificationService.createNotification(undefined, newPost.slug, typeNotification.newPost);
             for (var i = 0; i < author.followers.length; i++){
-                const receiver = await UserModel.findOne({username: author.followers[i]})
-                receiver.notifications.unshift(notification._id);
-                receiver.save();
-
+                const data = {notifi: newNotification, post: newPost, author: author}
+                notificationService.addNotificationToUser(author.followers[i], newNotification._id);
                 //emit notification to followers
-                io.to(author.followers[i]).emit(typeEmit.newPost, {notifi: notification, post: newPost, author: author})
+                io.to(author.followers[i]).emit(typeEmit.newPost, data)
+                updateCache(typeRedis.notification + author.followers[i], addNewNotification, data)
+                
             }
-            
         }
-        
-
         res.json({slug: result.slug})
     } catch (error) {
         console.log("createPost", error)
@@ -60,18 +58,18 @@ async function createPost(req, res){
 async function getPostBySlug(req, res){
     console.log("get Post", req.params);
     try {
-        const post = await postModel.findOne({slug: req.params.slug})
+        const post = await postModel.findOne({slug: req.params.slug}, {deleted: 0})
         if (!post){
             return res.status(404).json({})
         }
 
-        const author = await userModel.findOne({username: post.author}, {password: 0, heart: 0, bookmark: 0, following: 0, followers: 0, posts: 0, createdAt: 0, updatedAt: 0});
+        const author = await userModel.findOne({username: post.author}, {password: 0, heart: 0, bookmark: 0, following: 0, followers: 0, posts: 0, createdAt: 0, updatedAt: 0, bio: 0, email: 0, notifications: 0});
         const comment = await commentModel.find({_id: {$in: post.comment}}).sort({'createdAt': -1});
         
         const object = comment.map(async cmt => {
             const author = await userModel.findOne(
                 {username: cmt.author}, 
-                {password: 0, heart: 0, bookmark: 0, following: 0, followers: 0, posts: 0, createdAt: 0, updatedAt: 0});
+                {password: 0, heart: 0, bookmark: 0, following: 0, followers: 0, posts: 0, createdAt: 0, updatedAt: 0, bio: 0, email: 0, notifications: 0});
             return {cmt, author};
         });
 
@@ -88,8 +86,7 @@ async function heart(req, res){
         const {isPush} = req.body;
         const {slug} = req.params;
         const {username} = res.locals
-        const io = req.app.get('io');
-        
+        const io = req.app.get("io");
         const post = await postModel.findOne({slug: slug});
         const author = await userModel.findOne({username: username});//current user login
 
@@ -109,22 +106,27 @@ async function heart(req, res){
             const authorOfPost = await UserModel.findOne({username: post.author});
             //find this notification if exist
             const notificationHeart = await NotificationModel.findOne({type: typeNotification.heartPost, post: slug, _id: {$in: authorOfPost.notifications}});
+            const data = {post: post, nearestHeartUser: author, isReplace: Boolean(notificationHeart)}
             
             if (!notificationHeart){//neu chua co notification
                 const notification = new NotificationModel({username: post.author, type: typeNotification.heartPost, post: slug})
                 const newNotification = await notification.save();
                 authorOfPost.notifications.unshift(newNotification._id);
+                data.notifi = newNotification;
             }else{
                 const indexNotifi = authorOfPost.notifications.indexOf(notificationHeart._id)
                 if (indexNotifi > 0) {
                     authorOfPost.notifications.splice(indexNotifi, 1);
                     authorOfPost.notifications.unshift(notificationHeart._id);
                 }
+                data.notifi = notificationHeart;
+
             }
             authorOfPost.save();
 
             //emit notification socket
-            io.to(authorOfPost.username).emit(typeEmit.heartPost, {notifi: notificationHeart, post: post, nearestHeartUser: author, isReplace: Boolean(notificationHeart)})
+            io.to(authorOfPost.username).emit(typeEmit.heartPost, data)
+            updateCache(typeRedis.notification + authorOfPost.username, addNewNotification, data)
 
         }
         const newPost = await post.save();
@@ -166,9 +168,11 @@ async function bookmark(req, res){
 
 async function getAll(req, res){
     try {
-        const posts = await postServices.getAllOrderByCreatedAt();
+        const {currentPage} = req.query;
+        const itemPerPage = 10;
+        const posts = await postServices.getAllOrderByCreatedAt(currentPage, itemPerPage);
         const object = posts.map(async post => {
-            const author = await userModel.findOne({username: post.author}, {password: 0});
+            const author = await userModel.findOne({username: post.author}, {password: 0, heart: 0, bookmark: 0, following: 0, followers: 0, posts: 0, createdAt: 0, updatedAt: 0, bio: 0, email: 0, notifications: 0});
             return {post, author};
         })
         res.json(await Promise.all(object)) 
@@ -217,8 +221,8 @@ async function getPersonalPosts(req, res){
 
         var author = await userModel.findOne({username: username});
 
-        var following = await userModel.find({username: {'$in': author.following}});
-        var followers = await userModel.find({username: {'$in': author.followers}});
+        var following = await userModel.find({username: {'$in': author.following}}, {password: 0, heart: 0, bookmark: 0, following: 0, followers: 0, posts: 0, createdAt: 0, updatedAt: 0});
+        var followers = await userModel.find({username: {'$in': author.followers}}, {password: 0, heart: 0, bookmark: 0, following: 0, followers: 0, posts: 0, createdAt: 0, updatedAt: 0});
 
         res.json({posts, following, followers})
     } catch (error) {
@@ -241,7 +245,7 @@ async function deletePost(req, res){
 async function getProfile(req, res){
     try {
         const {username} = req.params;
-        const author = await userModel.findOne({username: username});
+        const author = await userModel.findOne({username: username}, {password: 0, heart: 0, bookmark: 0, createdAt: 0, updatedAt: 0, following: 0, followers: 0});
         if (!author){
             return res.status(404).end();
         }
@@ -254,5 +258,4 @@ async function getProfile(req, res){
         console.log(error)
     }    
 }
-
 export {uploadImage, createPost, getPostBySlug, heart, bookmark, getAll, editPost, getPersonalPosts, deletePost, getProfile};

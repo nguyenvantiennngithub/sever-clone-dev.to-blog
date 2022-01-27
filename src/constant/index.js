@@ -7,6 +7,11 @@ const typeNotification = {
 const typeEmit = {
     heartPost: "emit notification heart my post",
     commentPost: "emit notification comment post",
-    newPost: "emit notification has new post"
+    newPost: "emit notification has new post",
+    commentPostDetail: "emit notification at post detail",
 }
-export {typeNotification, typeEmit}
+
+const typeRedis = {
+    notification: "caching notification: ",
+}
+export {typeNotification, typeEmit, typeRedis}

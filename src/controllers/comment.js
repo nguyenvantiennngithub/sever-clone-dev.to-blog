@@ -2,55 +2,44 @@ import CommentModel from '../models/comment.js';
 import PostModel from '../models/post.js';
 import UserModel from '../models/user.js';
 import NotificationModel from '../models/notification.js';
-import {typeEmit, typeNotification} from '../constant/index.js'
+import {typeEmit, typeNotification, typeRedis} from '../constant/index.js'
+import * as commentService from '../services/comment.js'
+import * as notificationService from '../services/notification.js'
+import {addNewNotification, updateCache} from '../utils/index.js'
 async function comment(req, res, next){//coomment and reply
     try {
+        const io = req.app.get("io");
         const {slug, comment, isReply, idParent, replyClosest, idParentReply} = req.body;
         const {username} = res.locals;
-        const io = req.app.get("io")
-        const parentComment = await CommentModel.findById(idParent);
-        const updatePost = await PostModel.findOne({slug: slug});//this post
         const author = await UserModel.findOne({username: username}, {password: 0});//current user login
+
         //comment and reply
-        const commentObj = new CommentModel({slug, comment, author: username, idParentReply});
-        if (isReply){
-            commentObj.idReply = idParent;
-            if (replyClosest.username !== username){
-                commentObj.replyClosest = replyClosest;
-            }
-        }
-        const newComment = await commentObj.save();
-        
-        if (isReply){
-            parentComment.reply = [newComment._id, ...parentComment.reply];
-            parentComment.save();
-        }else{
-            updatePost.comment = [...updatePost.comment, newComment._id];
-            updatePost.save();
-        }
+        const newComment = await commentService.createComment(slug, comment, username, idParentReply, isReply);
+        const {parentComment, updatePost} = await commentService.addNewCommentToPost(isReply, newComment._id, idParent, slug)
         
         //notification
-        const authorOfPost = await UserModel.findOne({username: updatePost.author})
-        const notification = new NotificationModel({comment: newComment._id, post: slug, type: typeNotification.commentPost})
-        const newNotification = await notification.save();
+        const newNotification = await notificationService.createNotification(newComment._id, slug, typeNotification.commentPost);
+
+        const data = {notifi: newNotification, comment: newComment, author: author, post: updatePost, parentComment: parentComment}
+        //emit to user in this post
+        io.emit(typeEmit.commentPostDetail + slug, {data: {cmt: newComment, author, isReply}, idParent});
 
         if (updatePost.author !== username){//dont add notification for myself
-            authorOfPost.notifications.unshift(newNotification._id);
-            authorOfPost.save();
-            const data = {notifi: newNotification, comment: newComment, author: author, post: updatePost, parentComment: parentComment}
-            io.to(authorOfPost.username).emit(typeEmit.commentPost, data)
+            //emit to author of post
+            notificationService.addNotificationToUser(updatePost.author, newNotification._id);
+            io.to(updatePost.author).emit(typeEmit.commentPost, data)
+            updateCache(typeRedis.notification + updatePost.author, addNewNotification, data)
         }
         if (replyClosest){//add notification to tagged user 
-            const userReply = await UserModel.findOne({username: replyClosest.username});
-            userReply.notifications.unshift(newNotification._id);
-            userReply.save();
+            notificationService.addNotificationToUser(replyClosest.username, newNotification._id);
+            //emit to user i reply
+            io.to(replyClosest.username).emit(typeEmit.commentPost, data)
+            updateCache(typeRedis.notification + replyClosest.username, addNewNotification, data)
         }
-        //emit notification
-
         res.json({cmt: newComment, author});
     } catch (error) {
-       console.log(error);
-   }
+        console.log(error);
+    }
 }
 
 async function showReply(req, res, next){
@@ -64,8 +53,8 @@ async function showReply(req, res, next){
         })
         res.json(await Promise.all(object)) 
     } catch (error) {
-       console.log(error);
-   }
+        console.log(error);
+    }
 }
 
 async function heart(req, res, next){
@@ -90,8 +79,8 @@ async function heart(req, res, next){
         res.json({comment: newComment});
     
     } catch (error) {
-       console.log(error);
-   }
+        console.log(error);
+    }
 }
 
 async function editComment(req, res){
@@ -120,4 +109,5 @@ async function deleteComment(req, res){
         console.log(error);
     }
 }
+
 export {comment, showReply, heart, editComment, deleteComment};

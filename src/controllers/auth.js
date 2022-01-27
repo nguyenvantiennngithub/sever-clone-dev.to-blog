@@ -2,11 +2,12 @@ import UserModel from '../models/user.js';
 import * as authServices from '../services/auth.js';
 import clound from 'cloudinary'
 
+
 async function registerUser(req, res, next){
     const {username, password, email} = req.body;
     //{message, success}
     const {status, user} = await authServices.registerUser({username, password, email})
-   
+    
     //create token because after register success will auto login
     if (status.success){
         const token = authServices.login(username);
@@ -14,6 +15,24 @@ async function registerUser(req, res, next){
     }
 
     res.json({status, user});
+}
+
+async function loginSocial(req, res){
+    try {
+        const {username, displayName, avatar, email} = req.body;
+        var  user = await UserModel.findOne({username: username});
+        
+        if (!user){
+            var userModel = new UserModel({username, displayName, avatar, email}, {password: 0});
+            user = await userModel.save();
+        }
+        const token = authServices.login(username);
+        res.setHeader('Authorization', token);
+        res.json({user});
+
+    } catch (error) {
+        console.log(error)
+    }
 }
 
 async function checkLogin(req, res, next){
@@ -90,6 +109,4 @@ async function changePassword(req, res, next){
         console.log(error)
     }
 }
-
-
-export {registerUser, checkLogin, verifyToken, updateInfo, changePassword};
+export {registerUser, checkLogin, verifyToken, updateInfo, changePassword, loginSocial};

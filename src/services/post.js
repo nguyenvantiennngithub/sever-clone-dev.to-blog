@@ -1,10 +1,11 @@
 import postModel from "../models/post.js";
 
 
-async function getAllOrderByCreatedAt(){
+async function getAllOrderByCreatedAt(currentPage, itemPerPage){
     try {
-        const posts = await postModel.find({});
-        return posts.sort((a, b) => b.createdAt - a.createdAt)
+        console.log(currentPage, itemPerPage)
+        const posts = await postModel.find({}).sort({createdAt: -1}).limit(itemPerPage).skip(itemPerPage*(currentPage-1));
+        return posts;
     } catch (error) {
         console.log(error)
     }
