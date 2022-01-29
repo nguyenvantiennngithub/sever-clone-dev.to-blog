@@ -1,24 +1,32 @@
-import redisClient from '../db/redis.js'
+import {redisClient} from '../index.js'
 
 async function getSetCache(type, callback, username){
-    const temp = await redisClient.get(type)
-    if (temp){
-        const dataCache = JSON.parse(temp);
-        return {result: dataCache, isCached: true};
+    try {
+        const temp = await redisClient.get(type)
+        if (temp){
+            const dataCache = JSON.parse(temp);
+            return {result: dataCache, isCached: true};
+        }
+        const {result, totalUnread} = await callback(username);
+        redisClient.set(type, JSON.stringify(result));
+        return {result, totalUnread, isCached: false};
+    } catch (error) {
+        console.log(error)
     }
-    const {result, totalUnread} = await callback(username);
-    redisClient.set(type, JSON.stringify(result));
-    return {result, totalUnread, isCached: false};
 }
 
 async function updateCache(type, callback, data){
-    const temp = await redisClient.get(type)
-    const cacheData = JSON.parse(temp);
-    if (!temp){
-        return;
+    try {
+        const temp = await redisClient.get(type)
+        const cacheData = JSON.parse(temp);
+        if (!temp){
+            return;
+        }
+        const result = callback(cacheData, data);
+        redisClient.set(type, JSON.stringify(result));
+    } catch (error) {
+        console.log(error)
     }
-    const result = callback(cacheData, data);
-    redisClient.set(type, JSON.stringify(result));
 }
 
 function addNewNotification(list, data){

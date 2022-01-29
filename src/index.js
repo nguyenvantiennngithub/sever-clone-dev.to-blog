@@ -7,6 +7,7 @@ import router from './routers/index.js'
 import clound from 'cloudinary' 
 import { Server } from "socket.io";
 import {createServer } from 'http'
+import Redis from './db/redis.js'
 const cloudinary = clound.v2;
 const app = express()
 const port = process.env.PORT || 8080
@@ -27,6 +28,10 @@ const io = new Server(httpServer, {
 app.use(cors(corsOptions));
 app.use(express.json({ extended: false, limit: '50mb'}));
 app.use(express.urlencoded({ extended: false }));
+
+const redisClient = Redis();
+mongodb();
+
 app.use(router);
 app.set("io", io);
 io.on("connection", (socket) => {
@@ -51,7 +56,7 @@ cloudinary.config({
     api_secret: process.env.CLOUD_API_SECRET
 })
 
-mongodb();
 httpServer.listen(port, () => {
     console.log(`Example app listening at http://localhost:${port}`)
 })
+export {redisClient}
