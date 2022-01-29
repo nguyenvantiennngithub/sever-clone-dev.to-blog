@@ -14,7 +14,7 @@ async function comment(req, res, next){//coomment and reply
         const author = await UserModel.findOne({username: username}, {password: 0});//current user login
 
         //comment and reply
-        const newComment = await commentService.createComment(slug, comment, username, idParentReply, isReply);
+        const newComment = await commentService.createComment(slug, comment, username, idParentReply, isReply, idParent);
         const {parentComment, updatePost} = await commentService.addNewCommentToPost(isReply, newComment._id, idParent, slug)
         
         //notification

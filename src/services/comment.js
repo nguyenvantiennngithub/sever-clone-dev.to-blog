@@ -1,7 +1,7 @@
 import CommentModel from '../models/comment.js';
 import PostModel from '../models/post.js';
 import UserModel from '../models/user.js';
-async function createComment(slug, comment, author, idParentReply, isReply){
+async function createComment(slug, comment, author, idParentReply, isReply, idParent){
     const commentObj = new CommentModel({slug, comment, author, idParentReply});
     if (isReply){
         commentObj.idReply = idParent;
