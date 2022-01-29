@@ -1,11 +1,11 @@
 import CommentModel from '../models/comment.js';
 import PostModel from '../models/post.js';
-import UserModel from '../models/user.js';
-async function createComment(slug, comment, author, idParentReply, isReply, idParent){
+async function createComment(slug, comment, author, idParentReply, isReply, idParent, replyClosest){
     const commentObj = new CommentModel({slug, comment, author, idParentReply});
     if (isReply){
         commentObj.idReply = idParent;
-        if (replyClosest.username !== username){
+        console.log({replyClosest, author})
+        if (replyClosest.username !== author){
             commentObj.replyClosest = replyClosest;
         }
     }

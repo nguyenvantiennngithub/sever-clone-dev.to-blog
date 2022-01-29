@@ -26,14 +26,18 @@ async function getNotification(req, res){
 
 async function seen(req, res){
     try {
-        const {id} = req.body;
+        const {listUnread} = req.body;
         const {username} = res.locals;
-        const notification = await NotificationModel.findById(id);
-        notification.seen.push(username);
-        notification.save();
+        const notifications = await NotificationModel.find({_id: {$in: listUnread}});
+
+        for (var i = 0; i < notifications.length; i++){
+            const item = notifications[i];
+            item.seen.push(username);
+            item.save();
+        }
 
         //add username to seen field of notification
-        updateCache(typeRedis.notification + username, addUsernameToSeenNotification, {username, id});
+        await updateCache(typeRedis.notification + username, addUsernameToSeenNotification, {username, notifications});
 
         res.end();
     } catch (error) {

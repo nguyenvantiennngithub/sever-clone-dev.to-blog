@@ -14,7 +14,7 @@ async function comment(req, res, next){//coomment and reply
         const author = await UserModel.findOne({username: username}, {password: 0});//current user login
 
         //comment and reply
-        const newComment = await commentService.createComment(slug, comment, username, idParentReply, isReply, idParent);
+        const newComment = await commentService.createComment(slug, comment, username, idParentReply, isReply, idParent, replyClosest);
         const {parentComment, updatePost} = await commentService.addNewCommentToPost(isReply, newComment._id, idParent, slug)
         
         //notification
@@ -33,7 +33,8 @@ async function comment(req, res, next){//coomment and reply
         if (replyClosest){//add notification to tagged user 
             notificationService.addNotificationToUser(replyClosest.username, newNotification._id);
             //emit to user i reply
-            io.to(replyClosest.username).emit(typeEmit.commentPost, data)
+            if (replyClosest.username !== username)
+                io.to(replyClosest.username).emit(typeEmit.commentPost, data)
             updateCache(typeRedis.notification + replyClosest.username, addNewNotification, data)
         }
         res.json({cmt: newComment, author});
